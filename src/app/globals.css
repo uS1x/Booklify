@@ -1,4 +1,8 @@
-@import "tailwindcss";
+/* Klassen nur in src/ suchen: Die automatische Erkennung würde sonst das ganze
+   Projekt beobachten – inklusive data/, wo SQLite bei jedem Schreibvorgang eine
+   Journal-Datei anlegt und damit im Dev-Server Neukompilierungen auslöste. */
+@import "tailwindcss" source(none);
+@source "../";
 
 /* Dark Mode wird über die Klasse .dark am <html>-Element gesteuert
    (Theme-Toggle mit System-Fallback, siehe components/theme-provider.tsx). */
@@ -106,6 +110,10 @@
 @keyframes pop {
   0% { opacity: 0; transform: scale(0.94); }
   100% { opacity: 1; transform: scale(1); }
+}
+@keyframes scanline {
+  0%, 100% { top: 12%; }
+  50% { top: 86%; }
 }
 @keyframes shimmer {
   0% { background-position: -200% 0; }

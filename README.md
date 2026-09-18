@@ -17,7 +17,7 @@ Voraussetzung: Node.js ≥ 20.9 (empfohlen 24, siehe `.nvmrc`).
 git clone <repo-url> buecherregal
 cd buecherregal
 npm install
-npm run setup     # .env anlegen, Datenbank erstellen, Demo-Daten einspielen
+npm run setup     # .env anlegen, Datenbank erstellen, Stammdaten einspielen
 npm run dev
 ```
 
@@ -27,14 +27,9 @@ Danach `http://localhost:3000` öffnen.
 zufälligem `AUTH_SECRET` und frischem VAPID-Schlüsselpaar für Web Push. Eine
 vorhandene `.env` wird nie überschrieben.
 
-**Demo-Zugang** (aus dem Seed):
-
-| Konto | E-Mail | Passwort |
-|---|---|---|
-| Basti (volles Regal, Ausleihen, Moodboards) | `basti@buchregal.app` | `lesen1234` |
-| Max Köhler (teilt sein Regal, verleiht) | `max@buchregal.app` | `lesen1234` |
-| Lisa Brandt (teilt nur einzeln) | `lisa@buchregal.app` | `lesen1234` |
-| Jonas Weber (offene Freundschaftsanfrage) | `jonas@buchregal.app` | `lesen1234` |
+Beim ersten Aufruf ein Konto unter `/register` anlegen – die Datenbank startet leer.
+Der Seed enthält ausschließlich Stammdaten (Genres und den Fragenkatalog) und kann
+jederzeit erneut ausgeführt werden, ohne Benutzerdaten zu verändern.
 
 > Wird `npm install` mit npm 11 ausgeführt und brechen Prisma oder esbuild ab, müssen
 > deren Install-Skripte einmal freigegeben werden:
@@ -83,6 +78,14 @@ Bewusst *nicht* verwendet: UI-Kit, State-Management-Library, Chart-Library
 - **Mehrstufiger Wizard**: Suche (Titel/Autor/ISBN) → Angaben prüfen → eigenes
   Exemplar einrichten. Alle automatisch übernommenen Felder sind editierbar; ohne
   API funktioniert die vollständig manuelle Anlage
+- **ISBN-Barcode scannen**: Kamera auf die Buchrückseite richten – die ISBN wird
+  erkannt, geprüft (Bookland-Präfix 978/979 und Prüfziffer) und sofort gesucht. Bei
+  eindeutigem Treffer werden die Angaben der gescannten *Ausgabe* übernommen
+  (Open-Library-Editionsdaten: Titel in der Sprache der Ausgabe, Verlag, Seitenzahl,
+  Cover). Nicht gefundene ISBNs lassen sich direkt manuell mit vorausgefüllter ISBN anlegen.
+  Erkennung über das native `BarcodeDetector`-API (Android/Chrome) oder ZXing als
+  Fallback, das erst beim Öffnen des Scanners geladen wird. Die Live-Kamera braucht
+  HTTPS oder `localhost`; ohne Kamera funktioniert der Scan über ein Foto.
 - Lesefortschritt: `234 / 412 Seiten` → `57 % gelesen`, mit Verlaufsprotokoll
   (`ReadingProgress`); Erreichen der letzten Seite schließt das Buch automatisch ab
 
@@ -201,7 +204,7 @@ Server Actions mit zod validiert.
 ## Projektstruktur
 
 ```
-prisma/           schema.prisma, seed.ts, seed-data.ts (Genres, Fragenkatalog, Demo-Bücher)
+prisma/           schema.prisma, seed.ts, seed-data.ts (Genres und Fragenkatalog)
 scripts/          VAPID-Schlüssel, PWA-Icons erzeugen
 src/app/
   (app)/          angemeldeter Bereich: Regal, Bücher, Detailseite, Moodboard,
@@ -222,7 +225,7 @@ src/server/
 |---|---|
 | `npm run dev` | Entwicklungsserver |
 | `npm run build` / `npm start` | Produktionsbuild und -start |
-| `npm run setup` | `.env` anlegen (falls fehlend), Client generieren, Datenbank anlegen, Seed |
+| `npm run setup` | `.env` anlegen (falls fehlend), Client generieren, Datenbank anlegen, Stammdaten |
 | `npm run db:push` / `db:seed` / `db:studio` | Prisma-Werkzeuge |
 | `npm run push:keys` | VAPID-Schlüsselpaar erzeugen und in `.env` schreiben |
 | `npm run typecheck` / `npm run lint` | TypeScript und ESLint |

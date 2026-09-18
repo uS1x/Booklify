@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowLeft, ArrowRight, BookPlus, Check, Loader2, PencilLine, Search, Sparkles,
+  ArrowLeft, ArrowRight, BookPlus, Check, Loader2, PencilLine, ScanBarcode, Search, Sparkles,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import { createBookAction } from "@/server/actions/books";
 import { LANGUAGES, READING_STATUSES, READING_STATUS_META, VISIBILITY_META } from "@/lib/constants";
 import { cn } from "@/lib/cn";
 import type { GenreOption } from "@/components/books/edit-book-dialog";
+import { IsbnScanner } from "@/components/books/isbn-scanner";
+import { formatIsbn, toIsbn13 } from "@/lib/isbn";
 
 type Candidate = {
   source: string;
@@ -67,6 +69,8 @@ export function AddBookWizard({
   const [results, setResults] = useState<Candidate[]>([]);
   const [searched, setSearched] = useState(false);
   const [searching, startSearch] = useTransition();
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannedIsbn, setScannedIsbn] = useState<string | null>(null);
 
   const [details, setDetails] = useState(emptyDetails);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
@@ -85,16 +89,23 @@ export function AddBookWizard({
 
   const [saving, startSaving] = useTransition();
 
-  const search = () => {
-    if (query.trim().length < 2) return;
+  const runSearch = (term: string, searchField: SearchField, options: { fromScan?: boolean } = {}) => {
+    if (term.trim().length < 2) return;
     startSearch(async () => {
       try {
         const response = await fetch(
-          `/api/books/search?q=${encodeURIComponent(query.trim())}&field=${field}`,
+          `/api/books/search?q=${encodeURIComponent(term.trim())}&field=${searchField}`,
         );
         const data = (await response.json()) as { results?: Candidate[] };
-        setResults(data.results ?? []);
+        const found = data.results ?? [];
+        setResults(found);
         setSearched(true);
+
+        // Eine ISBN bezeichnet genau eine Ausgabe – bei eindeutigem Treffer direkt weiter.
+        if (options.fromScan && found.length === 1) {
+          toast(`Gefunden: „${found[0].title}“`);
+          pick(found[0], term);
+        }
       } catch {
         toast("Die Buchsuche ist gerade nicht erreichbar – du kannst das Buch manuell anlegen.", "error");
         setSearched(true);
@@ -102,14 +113,28 @@ export function AddBookWizard({
     });
   };
 
-  const pick = (candidate: Candidate) => {
+  const search = () => {
+    setScannedIsbn(null);
+    runSearch(query, field);
+  };
+
+  const handleScan = (isbn: string) => {
+    setScannerOpen(false);
+    setField("isbn");
+    setQuery(isbn);
+    setScannedIsbn(isbn);
+    setResults([]);
+    runSearch(isbn, "isbn", { fromScan: true });
+  };
+
+  const pick = (candidate: Candidate, isbnOverride?: string) => {
     setDetails({
       title: candidate.title,
       subtitle: candidate.subtitle ?? "",
       author: candidate.author,
       coverUrl: candidate.coverUrl ?? "",
       description: candidate.description ?? "",
-      isbn13: candidate.isbn13 ?? candidate.isbn10 ?? "",
+      isbn13: isbnOverride ?? candidate.isbn13 ?? scannedIsbn ?? candidate.isbn10 ?? "",
       publishedYear: candidate.publishedYear ? String(candidate.publishedYear) : "",
       publisher: candidate.publisher ?? "",
       pageCount: candidate.pageCount ? String(candidate.pageCount) : "",
@@ -121,7 +146,9 @@ export function AddBookWizard({
   };
 
   const startManual = () => {
-    setDetails({ ...emptyDetails, title: query.trim() });
+    // Steht eine ISBN im Suchfeld, landet sie im ISBN-Feld statt im Titel.
+    const isbn = scannedIsbn ?? toIsbn13(query);
+    setDetails({ ...emptyDetails, title: isbn ? "" : query.trim(), isbn13: isbn ?? "" });
     setSelectedGenres([]);
     setExternal({ source: "manual", id: null });
     setStep(1);
@@ -166,12 +193,13 @@ export function AddBookWizard({
       }
 
       toast(`„${details.title}“ steht jetzt im Regal`);
+      // Kein router.refresh() hinterher: Die Action hat die Pfade bereits revalidiert, und ein
+      // Refresh würde die noch aktuelle Seite neu laden und dabei die Navigation überholen.
       router.push(
         copy.status === "READ"
           ? `/books/${result.data.userBookId}/questionnaire`
           : `/books/${result.data.userBookId}`,
       );
-      router.refresh();
     });
 
   const steps = ["Buch finden", "Angaben prüfen", "Mein Exemplar"];
@@ -212,18 +240,31 @@ export function AddBookWizard({
             className="flex flex-col gap-4"
           >
             <div className="rounded-3xl border border-ink/8 bg-surface p-5 shadow-soft sm:p-6 dark:border-white/8">
-              <Segmented
-                id="search-field"
-                value={field}
-                onChange={setField}
-                size="sm"
-                options={[
-                  { value: "any", label: "Alles" },
-                  { value: "title", label: "Titel" },
-                  { value: "author", label: "Autor" },
-                  { value: "isbn", label: "ISBN" },
-                ]}
-              />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <Segmented
+                  id="search-field"
+                  value={field}
+                  onChange={setField}
+                  size="sm"
+                  options={[
+                    { value: "any", label: "Alles" },
+                    { value: "title", label: "Titel" },
+                    { value: "author", label: "Autor" },
+                    { value: "isbn", label: "ISBN" },
+                  ]}
+                />
+                {provider.configured ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setScannerOpen(true)}
+                    className="w-full sm:w-auto"
+                  >
+                    <ScanBarcode size={17} />
+                    ISBN-Barcode scannen
+                  </Button>
+                ) : null}
+              </div>
 
               <form
                 onSubmit={(event) => {
@@ -236,10 +277,13 @@ export function AddBookWizard({
                   <Search size={17} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-faint" />
                   <Input
                     value={query}
-                    onChange={(event) => setQuery(event.target.value)}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      setScannedIsbn(null);
+                    }}
                     placeholder={
                       field === "isbn"
-                        ? "978-3-551-55167-9"
+                        ? "978-3-551-55167-2"
                         : field === "author"
                           ? "Patrick Rothfuss"
                           : "Der Name des Windes"
@@ -298,10 +342,31 @@ export function AddBookWizard({
               </div>
             ) : null}
 
-            {searched && !results.length && !searching ? (
-              <p className="text-sm text-ink-faint">
-                Keine Treffer. Vielleicht ein Tippfehler – oder das Buch ist zu selten. Leg es einfach manuell an.
+            {scannedIsbn && searching ? (
+              <p className="flex items-center gap-2 text-sm text-ink-soft">
+                <Loader2 size={15} className="animate-spin" />
+                ISBN {formatIsbn(scannedIsbn)} erkannt – suche passende Ausgabe …
               </p>
+            ) : null}
+
+            {searched && !results.length && !searching ? (
+              scannedIsbn || toIsbn13(query) ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/8 bg-surface p-4 dark:border-white/8">
+                  <p className="text-sm text-ink-soft">
+                    Zur ISBN <span className="font-medium text-ink">{formatIsbn(scannedIsbn ?? toIsbn13(query)!)}</span>{" "}
+                    ist in {provider.label} nichts hinterlegt. Leg das Buch mit dieser ISBN an – die übrigen
+                    Angaben trägst du selbst ein.
+                  </p>
+                  <Button variant="soft" onClick={startManual}>
+                    <PencilLine size={16} />
+                    Mit dieser ISBN anlegen
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-ink-faint">
+                  Keine Treffer. Vielleicht ein Tippfehler – oder das Buch ist zu selten. Leg es einfach manuell an.
+                </p>
+              )
             ) : null}
 
             <button
@@ -602,6 +667,8 @@ export function AddBookWizard({
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      <IsbnScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onDetected={handleScan} />
     </div>
   );
 }

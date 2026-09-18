@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { useActionState } from "react";
 
 import { loginAction } from "@/server/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -9,8 +8,6 @@ import { Field, Input } from "@/components/ui/field";
 
 export function LoginForm() {
   const [state, formAction, pending] = useActionState(loginAction, undefined);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
 
   return (
     <form action={formAction} className="mt-8 flex flex-col gap-4">
@@ -20,8 +17,6 @@ export function LoginForm() {
           type="text"
           autoComplete="username"
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
           placeholder="du@beispiel.de"
         />
       </Field>
@@ -32,8 +27,6 @@ export function LoginForm() {
           type="password"
           autoComplete="current-password"
           required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
         />
       </Field>
@@ -47,18 +40,6 @@ export function LoginForm() {
       <Button type="submit" size="lg" disabled={pending} className="mt-2">
         {pending ? "Wird geöffnet …" : "Regal öffnen"}
       </Button>
-
-      <button
-        type="button"
-        onClick={() => {
-          setEmail("basti@buchregal.app");
-          setPassword("lesen1234");
-        }}
-        className="mt-1 flex items-center justify-center gap-2 rounded-xl border border-dashed border-ink/15 px-4 py-3 text-xs text-ink-faint transition-colors hover:border-clay-300 hover:text-ink dark:border-white/15"
-      >
-        <Sparkles size={14} />
-        Demo-Zugang einsetzen (basti@buchregal.app · lesen1234)
-      </button>
     </form>
   );
 }

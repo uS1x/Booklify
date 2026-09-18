@@ -96,8 +96,8 @@ export function QuestionnaireForm({
   const finish = () =>
     persist(() => {
       toast("Fragebogen gespeichert");
+      // Die Action hat die Buchseite revalidiert – ein zusätzlicher Refresh würde die Navigation überholen.
       router.push(`/books/${userBookId}`);
-      router.refresh();
     });
 
   if (!group) {

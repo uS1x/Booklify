@@ -89,8 +89,8 @@ export function BookActions({ book, genres }: { book: ShelfBook; genres: GenreOp
           const result = await deleteUserBookAction(book.id);
           if (result.ok) {
             toast("Buch entfernt");
+            // Die Action hat /books revalidiert – ein zusätzlicher Refresh würde die Navigation überholen.
             router.push("/books");
-            router.refresh();
           } else {
             toast(result.error, "error");
           }

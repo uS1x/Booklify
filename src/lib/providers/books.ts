@@ -1,6 +1,7 @@
 import "server-only";
 
 import { mapSubjectsToGenres } from "./genre-map";
+import { toIsbn13 } from "@/lib/isbn";
 
 /**
  * Abstraktion für Buch-Metadaten-Provider.
@@ -140,6 +141,75 @@ async function detailsOpenLibrary(workId: string): Promise<Partial<BookCandidate
   };
 }
 
+/**
+ * Genau eine Ausgabe per ISBN. Anders als die Suche (die das *Werk* liefert,
+ * oft mit englischem Originaltitel) kommen hier Titel, Verlag, Seitenzahl und
+ * Cover der gescannten Ausgabe zurück.
+ */
+async function lookupOpenLibraryEdition(isbn13: string): Promise<BookCandidate | null> {
+  const edition = await fetchJson<{
+    key?: string;
+    title?: string;
+    subtitle?: string;
+    publishers?: string[];
+    publish_date?: string;
+    number_of_pages?: number;
+    covers?: number[];
+    isbn_10?: string[];
+    isbn_13?: string[];
+    languages?: { key: string }[];
+    works?: { key: string }[];
+    authors?: { key: string }[];
+  }>(`https://openlibrary.org/isbn/${isbn13}.json`);
+  if (!edition?.title) return null;
+
+  const workKey = edition.works?.[0]?.key;
+  const work = workKey
+    ? await fetchJson<{
+        description?: string | { value?: string };
+        subjects?: string[];
+        authors?: { author?: { key: string } }[];
+      }>(`https://openlibrary.org${workKey}.json`)
+    : null;
+
+  const authorKeys = (
+    edition.authors?.map((a) => a.key) ??
+    work?.authors?.map((a) => a.author?.key).filter((k): k is string => Boolean(k)) ??
+    []
+  ).slice(0, 2);
+  const authors = await Promise.all(
+    authorKeys.map((key) => fetchJson<{ name?: string }>(`https://openlibrary.org${key}.json`)),
+  );
+  const authorNames = authors.map((a) => a?.name).filter((n): n is string => Boolean(n));
+
+  const description =
+    typeof work?.description === "string" ? work.description : work?.description?.value ?? null;
+  const year = edition.publish_date?.match(/\d{4}/)?.[0];
+  const subjects = work?.subjects?.slice(0, 25) ?? [];
+  const langCode = edition.languages?.[0]?.key.replace("/languages/", "") ?? "";
+
+  return {
+    source: "openlibrary",
+    externalId: edition.key?.replace("/books/", "") ?? isbn13,
+    title: edition.title,
+    subtitle: edition.subtitle ?? null,
+    author: authorNames.join(", ") || "Unbekannt",
+    coverUrl: edition.covers?.find((id) => id > 0)
+      ? `https://covers.openlibrary.org/b/id/${edition.covers.find((id) => id > 0)}-L.jpg`
+      : `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg?default=false`,
+    description: description?.replace(/\r/g, "").split("----------")[0].trim() ?? null,
+    isbn10: edition.isbn_10?.[0] ?? null,
+    isbn13: edition.isbn_13?.[0] ?? isbn13,
+    publishedYear: year ? Number(year) : null,
+    publishedDate: edition.publish_date ?? null,
+    publisher: edition.publishers?.[0] ?? null,
+    pageCount: edition.number_of_pages ?? null,
+    language: OL_LANG[langCode] ?? (langCode || null),
+    genreSlugs: mapSubjectsToGenres(subjects),
+    subjects,
+  };
+}
+
 /* ────────────────────────────────────────────────────────── Google Books */
 
 type GBItem = {
@@ -209,10 +279,20 @@ export async function searchBooks(
   const trimmed = query.trim();
   if (!provider.configured || trimmed.length < 2) return { provider, results: [] };
 
+  // ISBN: zuerst die konkrete Ausgabe, erst danach die allgemeine Suche.
+  const isbn13 = field === "isbn" || field === "any" ? toIsbn13(trimmed) : null;
+  if (isbn13 && provider.id === "openlibrary") {
+    const edition = await lookupOpenLibraryEdition(isbn13);
+    if (edition) return { provider, results: [edition] };
+  }
+
   const results =
     provider.id === "googlebooks"
-      ? await searchGoogleBooks(trimmed, field)
-      : await searchOpenLibrary(trimmed, field);
+      ? await searchGoogleBooks(isbn13 ?? trimmed, isbn13 ? "isbn" : field)
+      : await searchOpenLibrary(isbn13 ?? trimmed, isbn13 ? "isbn" : field);
+
+  // Die Werk-Suche kennt viele Ausgaben – die gesuchte ISBN ist die des eigenen Exemplars.
+  if (isbn13) for (const result of results) result.isbn13 = isbn13;
 
   // Duplikate (gleicher Titel + Autor) zusammenfassen, Treffer mit Cover zuerst.
   const seen = new Set<string>();
@@ -233,7 +313,7 @@ export async function searchBooks(
 /** Nachladen der Beschreibung – Suchtreffer enthalten sie oft nicht. */
 export async function enrichCandidate(candidate: BookCandidate): Promise<BookCandidate> {
   if (candidate.description && candidate.description.length > 120) return candidate;
-  if (candidate.source !== "openlibrary" || !candidate.externalId) return candidate;
+  if (candidate.source !== "openlibrary" || !candidate.externalId?.endsWith("W")) return candidate;
   const extra = await detailsOpenLibrary(candidate.externalId);
   if (!extra) return candidate;
   return {
