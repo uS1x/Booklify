@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 /**
  * Erinnerungen für alle Benutzer erzeugen – gedacht für einen Cron-Aufruf:
- *   curl -X POST -H "x-maintenance-key: $MAINTENANCE_KEY" http://localhost:3000/api/maintenance/reminders
+ *   curl -X POST -H "x-maintenance-key: $MAINTENANCE_KEY" http://localhost:3100/api/maintenance/reminders
  *
  * Ohne gesetzten MAINTENANCE_KEY ist die Route deaktiviert.
  */

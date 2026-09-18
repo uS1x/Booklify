@@ -21,7 +21,8 @@ npm run setup     # .env anlegen, Datenbank erstellen, Stammdaten einspielen
 npm run dev
 ```
 
-Danach `http://localhost:3000` öffnen.
+Danach `http://localhost:3100` öffnen. Der Port ist in `package.json` festgelegt
+(`dev` und `start`); ein Reverse Proxy oder Tunnel muss auf denselben Port zeigen.
 
 `npm run setup` legt beim ersten Aufruf eine `.env` aus `.env.example` an – mit
 zufälligem `AUTH_SECRET` und frischem VAPID-Schlüsselpaar für Web Push. Eine
@@ -158,7 +159,7 @@ Moodboard-Bilder hochladen. **Keys stehen ausschließlich in `.env`.**
 Erinnerungen für alle Benutzer per Cron:
 
 ```bash
-curl -X POST -H "x-maintenance-key: $MAINTENANCE_KEY" http://localhost:3000/api/maintenance/reminders
+curl -X POST -H "x-maintenance-key: $MAINTENANCE_KEY" http://localhost:3100/api/maintenance/reminders
 ```
 
 ---
