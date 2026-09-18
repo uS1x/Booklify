@@ -1,0 +1,306 @@
+@import "tailwindcss";
+
+/* Dark Mode wird über die Klasse .dark am <html>-Element gesteuert
+   (Theme-Toggle mit System-Fallback, siehe components/theme-provider.tsx). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* ── Papier & Flächen ───────────────────────────────────────────── */
+  --color-paper: #fbf7f1;
+  --color-paper-soft: #f5eee4;
+  --color-paper-deep: #ede3d6;
+  --color-surface: #ffffff;
+  --color-surface-muted: #faf5ee;
+
+  /* ── Tinte & Text ───────────────────────────────────────────────── */
+  --color-ink: #2b2420;
+  --color-ink-soft: #5d5249;
+  --color-ink-faint: #8d8177;
+
+  /* ── Warme Akzente ──────────────────────────────────────────────── */
+  --color-clay-50: #fbf1ed;
+  --color-clay-100: #f5ded5;
+  --color-clay-200: #ebc0b1;
+  --color-clay-300: #dd9d88;
+  --color-clay-400: #cc7f66;
+  --color-clay-500: #b9654c;
+  --color-clay-600: #9c503b;
+  --color-clay-700: #7d4030;
+
+  --color-honey-100: #fbecd2;
+  --color-honey-200: #f5d9a8;
+  --color-honey-300: #ecc078;
+  --color-honey-400: #e0a458;
+  --color-honey-500: #c9873c;
+
+  --color-sage-100: #e6ede4;
+  --color-sage-200: #c9d8c5;
+  --color-sage-300: #a4bd9e;
+  --color-sage-400: #7e9a7b;
+  --color-sage-500: #5f7c5d;
+
+  --color-plum-100: #ece3ec;
+  --color-plum-200: #d6c2d7;
+  --color-plum-300: #b596b7;
+  --color-plum-400: #8c6b8e;
+  --color-plum-500: #6d4f70;
+
+  --color-blush-100: #fae9e6;
+  --color-blush-200: #f2cec8;
+  --color-blush-300: #e4a9a0;
+
+  --color-ocean-100: #e0e9ef;
+  --color-ocean-200: #bed1de;
+  --color-ocean-300: #8fabbf;
+  --color-ocean-400: #6b8ca3;
+
+  /* ── Holz für die Regalböden ────────────────────────────────────── */
+  --color-wood-100: #e3cdb4;
+  --color-wood-200: #cdac8a;
+  --color-wood-300: #b98a63;
+  --color-wood-400: #9a6f4d;
+  --color-wood-500: #7b573b;
+  --color-wood-600: #5d4029;
+
+  /* ── Typografie ─────────────────────────────────────────────────── */
+  --font-display: var(--font-fraunces), "Iowan Old Style", Georgia, serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-hand: var(--font-caveat), "Segoe Script", cursive;
+
+  /* ── Radien ─────────────────────────────────────────────────────── */
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+  --radius-2xl: 2.25rem;
+
+  /* ── Schatten ───────────────────────────────────────────────────── */
+  --shadow-soft: 0 1px 2px rgb(43 36 32 / 0.04), 0 6px 20px -8px rgb(43 36 32 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(43 36 32 / 0.05), 0 18px 40px -16px rgb(43 36 32 / 0.22);
+  --shadow-book: 2px 3px 6px rgb(43 36 32 / 0.22), 8px 12px 24px -10px rgb(43 36 32 / 0.3);
+  --shadow-inset-shelf: inset 0 14px 22px -18px rgb(43 36 32 / 0.55);
+
+  /* ── Diagramme (validierte Single-Hue-Rampe) ────────────────────── */
+  --color-chart-mark: #b9654c;
+  --color-chart-mark-soft: #dd9d88;
+  --color-chart-grid: #e7dfd5;
+  --color-chart-track: #f1e9de;
+
+  /* ── Animationen ────────────────────────────────────────────────── */
+  --ease-cozy: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-rise: rise 0.5s var(--ease-cozy) both;
+  --animate-fade: fade 0.35s var(--ease-cozy) both;
+  --animate-pop: pop 0.3s var(--ease-cozy) both;
+  --animate-shimmer: shimmer 1.8s linear infinite;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pop {
+  0% { opacity: 0; transform: scale(0.94); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── Dark Mode: Tokens umdefinieren ───────────────────────────────── */
+.dark {
+  --color-paper: #17130f;
+  --color-paper-soft: #1e1915;
+  --color-paper-deep: #251f1a;
+  --color-surface: #221c18;
+  --color-surface-muted: #1c1713;
+
+  --color-ink: #f4ece2;
+  --color-ink-soft: #c5b6a8;
+  --color-ink-faint: #908274;
+
+  --color-wood-200: #6b4f37;
+  --color-wood-300: #56402c;
+  --color-wood-400: #43301f;
+  --color-wood-500: #332517;
+  --color-wood-600: #241a10;
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 20px -8px rgb(0 0 0 / 0.55);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.35), 0 18px 40px -16px rgb(0 0 0 / 0.7);
+  --shadow-book: 2px 3px 6px rgb(0 0 0 / 0.5), 8px 12px 24px -10px rgb(0 0 0 / 0.6);
+
+  /* Dark Mode bekommt eigene Diagrammstufen (nicht einfach invertiert). */
+  --color-chart-mark: #dd9d88;
+  --color-chart-mark-soft: #9c503b;
+  --color-chart-grid: #3a322b;
+  --color-chart-track: #2c251f;
+}
+
+@layer base {
+  * {
+    border-color: color-mix(in oklab, var(--color-ink) 10%, transparent);
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* dezente Papierstruktur */
+    background-image:
+      radial-gradient(at 8% 4%, color-mix(in oklab, var(--color-honey-200) 26%, transparent) 0px, transparent 55%),
+      radial-gradient(at 92% 0%, color-mix(in oklab, var(--color-blush-200) 24%, transparent) 0px, transparent 50%);
+    background-attachment: fixed;
+    min-height: 100dvh;
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(at 8% 4%, color-mix(in oklab, var(--color-clay-700) 22%, transparent) 0px, transparent 55%),
+      radial-gradient(at 92% 0%, color-mix(in oklab, var(--color-plum-500) 18%, transparent) 0px, transparent 50%);
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 550;
+    letter-spacing: -0.015em;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-clay-300) 55%, transparent);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-clay-400);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  input, textarea, select, button {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* dezenter Scrollbalken */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-ink) 18%, transparent);
+    border-radius: 99px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--color-ink) 30%, transparent);
+    background-clip: content-box;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* ── Buchrücken / Cover-Textur ──────────────────────────────────── */
+  .book-spine-sheen {
+    background-image: linear-gradient(
+      100deg,
+      rgb(255 255 255 / 0) 0%,
+      rgb(255 255 255 / 0.18) 42%,
+      rgb(255 255 255 / 0) 60%
+    );
+  }
+
+  .book-edge {
+    background-image: linear-gradient(
+      90deg,
+      rgb(0 0 0 / 0.22) 0%,
+      rgb(0 0 0 / 0.06) 4%,
+      rgb(255 255 255 / 0.12) 7%,
+      rgb(0 0 0 / 0) 12%
+    );
+  }
+
+  /* ── Regalbrett ─────────────────────────────────────────────────── */
+  .shelf-board {
+    background-image:
+      linear-gradient(180deg,
+        var(--color-wood-200) 0%,
+        var(--color-wood-300) 34%,
+        var(--color-wood-500) 100%);
+    box-shadow:
+      0 1px 0 color-mix(in oklab, #ffffff 35%, transparent) inset,
+      0 10px 18px -10px rgb(43 36 32 / 0.55);
+  }
+
+  .shelf-front {
+    background-image: linear-gradient(180deg, var(--color-wood-400), var(--color-wood-600));
+  }
+
+  .shelf-backdrop {
+    background-image:
+      linear-gradient(180deg,
+        color-mix(in oklab, var(--color-wood-600) 12%, transparent) 0%,
+        transparent 40%);
+  }
+
+  /* ── Papierkarte ────────────────────────────────────────────────── */
+  .paper-card {
+    background-color: var(--color-surface);
+    border: 1px solid color-mix(in oklab, var(--color-ink) 8%, transparent);
+    box-shadow: var(--shadow-soft);
+  }
+
+  /* ── Skeleton ───────────────────────────────────────────────────── */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--color-ink) 6%, transparent) 25%,
+      color-mix(in oklab, var(--color-ink) 12%, transparent) 50%,
+      color-mix(in oklab, var(--color-ink) 6%, transparent) 75%
+    );
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+
+  /* ── Moodboard-Pinnwand ─────────────────────────────────────────── */
+  .corkboard {
+    background-color: #d8b78a;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgb(255 255 255 / 0.22) 0 2px, transparent 3px),
+      radial-gradient(circle at 70% 60%, rgb(0 0 0 / 0.08) 0 2px, transparent 3px),
+      radial-gradient(circle at 45% 85%, rgb(0 0 0 / 0.06) 0 2px, transparent 3px);
+    background-size: 44px 44px, 66px 66px, 88px 88px;
+  }
+
+  .dark .corkboard {
+    background-color: #6b5136;
+  }
+
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+
+  .touch-none-safe {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}

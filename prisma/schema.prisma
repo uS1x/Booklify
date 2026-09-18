@@ -1,0 +1,449 @@
+// Digitales Bücherregal – Datenmodell
+// SQLite kennt keine Enums: Statuswerte sind Strings, die in src/lib/constants.ts
+// als TypeScript-Union-Typen samt Labels definiert und validiert werden.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────── Benutzer & Auth
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  displayName  String
+  passwordHash String
+  bio          String?
+  accentColor  String   @default("clay")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions            Session[]
+  books               UserBook[]
+  shelf               SharedShelf?
+  shelfMemberships    SharedShelfMember[]
+  sentFriendships     Friendship[]            @relation("friendRequester")
+  receivedFriendships Friendship[]            @relation("friendAddressee")
+  loanRequestsSent    LoanRequest[]           @relation("loanRequester")
+  loanRequestsGot     LoanRequest[]           @relation("loanOwner")
+  loansLent           Loan[]                  @relation("loanLender")
+  loansBorrowed       Loan[]                  @relation("loanBorrower")
+  notifications       Notification[]          @relation("notificationOwner")
+  triggered           Notification[]          @relation("notificationActor")
+  pushSubscriptions   PushSubscription[]
+  mediaAssets         MediaAsset[]
+  tags                Tag[]
+  notificationPrefs   NotificationPreference?
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  expiresAt DateTime
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────── Bücher
+
+/// Das Werk an sich – existiert genau einmal, unabhängig von Besitzern.
+model Book {
+  id             String   @id @default(cuid())
+  title          String
+  subtitle       String?
+  author         String
+  coverUrl       String?
+  coverColor     String?
+  description    String?
+  isbn10         String?
+  isbn13         String?
+  publishedYear  Int?
+  publishedDate  String?
+  publisher      String?
+  pageCount      Int?
+  language       String?
+  externalSource String? // openlibrary | googlebooks | manual
+  externalId     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  genres    BookGenre[]
+  userBooks UserBook[]
+
+  @@unique([externalSource, externalId])
+  @@index([title])
+  @@index([author])
+  @@index([isbn13])
+}
+
+model Genre {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  emoji     String?
+  tint      String   @default("#E8D9C5")
+  sortOrder Int      @default(100)
+  createdAt DateTime @default(now())
+
+  books     BookGenre[]
+  questions Question[]
+}
+
+model BookGenre {
+  bookId  String
+  genreId String
+
+  book  Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([bookId, genreId])
+  @@index([genreId])
+}
+
+/// Das Exemplar: „Basti besitzt Harry Potter 1“.
+model UserBook {
+  id             String    @id @default(cuid())
+  userId         String
+  bookId         String
+  status         String    @default("WANT_TO_READ") // WANT_TO_READ | READING | READ | ABANDONED
+  rating         Int? // 1–10, persönliche Bewertung
+  notes          String?
+  currentPage    Int       @default(0)
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  readingMinutes Int? // optionale Lesedauer in Minuten
+  favorite       Boolean   @default(false)
+  coverOverride  String?
+  visibility     String    @default("PRIVATE") // PRIVATE | FRIENDS
+  lendingEnabled Boolean   @default(false)
+  loanState      String    @default("AVAILABLE") // AVAILABLE | REQUESTED | LENT | RETURN_REQUESTED
+  lastReadAt     DateTime?
+  addedAt        DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book         Book              @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  tags         BookTag[]
+  answers      QuestionAnswer[]
+  moodboard    Moodboard?
+  drawings     Drawing[]
+  progress     ReadingProgress[]
+  loanRequests LoanRequest[]
+  loans        Loan[]
+  history      LoanHistory[]
+
+  @@unique([userId, bookId])
+  @@index([userId, status])
+  @@index([bookId])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  userId    String
+  slug      String
+  name      String
+  createdAt DateTime @default(now())
+
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  books BookTag[]
+
+  @@unique([userId, slug])
+}
+
+model BookTag {
+  userBookId String
+  tagId      String
+
+  userBook UserBook @relation(fields: [userBookId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([userBookId, tagId])
+  @@index([tagId])
+}
+
+model ReadingProgress {
+  id         String   @id @default(cuid())
+  userBookId String
+  page       Int
+  pagesRead  Int      @default(0)
+  note       String?
+  createdAt  DateTime @default(now())
+
+  userBook UserBook @relation(fields: [userBookId], references: [id], onDelete: Cascade)
+
+  @@index([userBookId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────── Fragebogen
+
+/// Datengetriebener Fragenkatalog. scope = GENERAL oder GENRE (dann mit genreId).
+model Question {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  prompt    String
+  hint      String?
+  type      String // RATING_5 | RATING_10 | SLIDER | YES_NO | CHOICE | TEXT | TAGS
+  scope     String   @default("GENERAL") // GENERAL | GENRE
+  genreId   String?
+  config    String   @default("{}") // JSON: min, max, step, labels, options, placeholder
+  sortOrder Int      @default(100)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  genre   Genre?           @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  answers QuestionAnswer[]
+
+  @@index([scope, genreId])
+}
+
+model QuestionAnswer {
+  id         String   @id @default(cuid())
+  userBookId String
+  questionId String
+  value      String? // JSON-kodierter Wert, passend zum Fragetyp
+  skipped    Boolean  @default(false)
+  answeredAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  userBook UserBook @relation(fields: [userBookId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userBookId, questionId])
+}
+
+// ─────────────────────────────────────────────────────────── Moodboard & Zeichnen
+
+model Moodboard {
+  id         String   @id @default(cuid())
+  userBookId String   @unique
+  title      String?
+  background String   @default("paper") // paper | cream | linen | dark | <hex>
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  userBook UserBook           @relation(fields: [userBookId], references: [id], onDelete: Cascade)
+  elements MoodboardElement[]
+}
+
+model MoodboardElement {
+  id          String   @id @default(cuid())
+  moodboardId String
+  type        String // IMAGE | TEXT | NOTE | COLOR | DRAWING
+  x           Float    @default(0)
+  y           Float    @default(0)
+  width       Float    @default(220)
+  height      Float    @default(220)
+  rotation    Float    @default(0)
+  zIndex      Int      @default(1)
+  src         String? // Bild-URL oder /api/media/<assetId>
+  text        String?
+  color       String?
+  fontFamily  String?
+  fontSize    Float?
+  meta        String? // JSON (Quelle, Autor, Attribution …)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  moodboard Moodboard @relation(fields: [moodboardId], references: [id], onDelete: Cascade)
+
+  @@index([moodboardId])
+}
+
+model Drawing {
+  id         String   @id @default(cuid())
+  userBookId String
+  title      String?
+  dataUrl    String // PNG als Data-URL
+  width      Int      @default(1000)
+  height     Int      @default(700)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  userBook UserBook @relation(fields: [userBookId], references: [id], onDelete: Cascade)
+
+  @@index([userBookId])
+}
+
+model MediaAsset {
+  id        String   @id @default(cuid())
+  userId    String
+  filename  String
+  mimeType  String
+  size      Int
+  width     Int?
+  height    Int?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────── Social
+
+model Friendship {
+  id          String    @id @default(cuid())
+  requesterId String
+  addresseeId String
+  status      String    @default("PENDING") // PENDING | ACCEPTED | DECLINED
+  createdAt   DateTime  @default(now())
+  respondedAt DateTime?
+
+  requester User @relation("friendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("friendAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+}
+
+/// Das teilbare Regal eines Benutzers (1:1) inklusive Grundeinstellung.
+model SharedShelf {
+  id          String   @id @default(cuid())
+  ownerId     String   @unique
+  name        String   @default("Mein Bücherregal")
+  description String?
+  visibility  String   @default("PRIVATE") // PRIVATE | FRIENDS
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner   User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members SharedShelfMember[]
+}
+
+model SharedShelfMember {
+  id         String   @id @default(cuid())
+  shelfId    String
+  userId     String
+  permission String   @default("VIEW") // VIEW | REQUEST_LOAN
+  createdAt  DateTime @default(now())
+
+  shelf SharedShelf @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([shelfId, userId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────── Ausleihe
+
+model LoanRequest {
+  id          String    @id @default(cuid())
+  userBookId  String
+  requesterId String
+  ownerId     String
+  status      String    @default("PENDING") // PENDING | ACCEPTED | DECLINED | CANCELLED
+  message     String?
+  createdAt   DateTime  @default(now())
+  respondedAt DateTime?
+
+  userBook  UserBook @relation(fields: [userBookId], references: [id], onDelete: Cascade)
+  requester User     @relation("loanRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  owner     User     @relation("loanOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  loan      Loan?
+
+  @@index([ownerId, status])
+  @@index([requesterId, status])
+  @@index([userBookId, status])
+}
+
+model Loan {
+  id         String    @id @default(cuid())
+  userBookId String
+  requestId  String?   @unique
+  lenderId   String
+  borrowerId String
+  status     String    @default("ACTIVE") // ACTIVE | RETURN_REQUESTED | RETURNED
+  startDate  DateTime  @default(now())
+  dueDate    DateTime?
+  returnedAt DateTime?
+  note       String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  userBook UserBook      @relation(fields: [userBookId], references: [id], onDelete: Cascade)
+  request  LoanRequest?  @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  lender   User          @relation("loanLender", fields: [lenderId], references: [id], onDelete: Cascade)
+  borrower User          @relation("loanBorrower", fields: [borrowerId], references: [id], onDelete: Cascade)
+  history  LoanHistory[]
+
+  @@index([lenderId, status])
+  @@index([borrowerId, status])
+}
+
+/// Unveränderliches Protokoll aller Ausleihvorgänge – bleibt nach Rückgabe erhalten.
+model LoanHistory {
+  id         String    @id @default(cuid())
+  userBookId String
+  loanId     String?
+  lenderId   String
+  borrowerId String
+  event      String // REQUESTED | ACCEPTED | DECLINED | CANCELLED | RETURN_REQUESTED | RETURNED
+  fromDate   DateTime?
+  toDate     DateTime?
+  note       String?
+  createdAt  DateTime  @default(now())
+
+  userBook UserBook @relation(fields: [userBookId], references: [id], onDelete: Cascade)
+  loan     Loan?    @relation(fields: [loanId], references: [id], onDelete: SetNull)
+
+  @@index([userBookId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────── Benachrichtigungen
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  category  String   @default("SYSTEM") // FRIEND | LOAN | SYSTEM
+  type      String // FRIEND_REQUEST | FRIEND_ACCEPTED | LOAN_REQUEST | …
+  title     String
+  body      String?
+  href      String?
+  actorId   String?
+  entityId  String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user  User  @relation("notificationOwner", fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("notificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, read, createdAt])
+}
+
+model PushSubscription {
+  id         String    @id @default(cuid())
+  userId     String
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model NotificationPreference {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  pushEnabled     Boolean @default(false)
+  friendRequests  Boolean @default(true)
+  loanRequests    Boolean @default(true)
+  loanUpdates     Boolean @default(true)
+  returnReminders Boolean @default(true)
+  system          Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

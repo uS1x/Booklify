@@ -1,0 +1,30 @@
+# Abhängigkeiten
+node_modules/
+
+# Next.js / Build
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Umgebungsvariablen – enthalten AUTH_SECRET und VAPID-Schlüssel
+.env
+.env*.local
+
+# Lokale Daten: SQLite-Datenbank und hochgeladene Bilder
+data/*
+!data/.gitkeep
+*.db
+*.db-journal
+
+# Logs & Systemdateien
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Editor & Deployment
+.vscode/
+.idea/
+.vercel/

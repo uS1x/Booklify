@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck, Lint & Build
+    runs-on: ubuntu-latest
+    env:
+      # Nur für den Build – echte Werte gehören in die .env des Servers.
+      DATABASE_URL: file:../data/ci.db
+      AUTH_SECRET: ci-only-secret-not-used-in-production
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Prisma-Client erzeugen
+        run: npx prisma generate
+
+      - name: Datenbankschema prüfen
+        run: npx prisma validate
+
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
