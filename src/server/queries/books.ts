@@ -13,7 +13,12 @@ export type ShelfBook = {
   title: string;
   subtitle: string | null;
   author: string;
+  /** Effektives Cover: eigenes Foto, sonst das des Werks. */
   coverUrl: string | null;
+  /** Cover des gemeinsamen Werks (z. B. von Open Library). */
+  bookCoverUrl: string | null;
+  /** Selbst aufgenommenes Cover – gilt nur für dieses Exemplar. */
+  coverOverride: string | null;
   description: string | null;
   pageCount: number | null;
   publishedYear: number | null;
@@ -66,6 +71,8 @@ export function toShelfBook(row: Row): ShelfBook {
     subtitle: row.book.subtitle,
     author: row.book.author,
     coverUrl: row.coverOverride ?? row.book.coverUrl,
+    bookCoverUrl: row.book.coverUrl,
+    coverOverride: row.coverOverride,
     description: row.book.description,
     pageCount: row.book.pageCount,
     publishedYear: row.book.publishedYear,

@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Camera } from "lucide-react";
 
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { BookCover } from "@/components/ui/book-cover";
+import { CoverCapture } from "@/components/books/cover-capture";
 import { useToast } from "@/components/ui/toast";
 import { updateBookAction } from "@/server/actions/books";
 import { LANGUAGES } from "@/lib/constants";
@@ -31,7 +33,7 @@ export function EditBookDialog({
     title: book.title,
     subtitle: book.subtitle ?? "",
     author: book.author,
-    coverUrl: book.coverUrl ?? "",
+    coverUrl: book.bookCoverUrl ?? "",
     description: book.description ?? "",
     isbn13: book.isbn ?? "",
     publishedYear: book.publishedYear ? String(book.publishedYear) : "",
@@ -40,6 +42,9 @@ export function EditBookDialog({
     language: book.language ?? "de",
   });
   const [selectedGenres, setSelectedGenres] = useState<string[]>(book.genres.map((g) => g.slug));
+  /** Eigenes Cover-Foto dieses Exemplars – unabhängig vom Cover des Werks. */
+  const [ownCover, setOwnCover] = useState<string | null>(book.coverOverride);
+  const [captureOpen, setCaptureOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
@@ -62,7 +67,7 @@ export function EditBookDialog({
           language: form.language || null,
           genreSlugs: selectedGenres,
         },
-        copy: {},
+        copy: { coverOverride: ownCover },
       });
       if (result.ok) {
         toast("Buch aktualisiert");
@@ -94,12 +99,42 @@ export function EditBookDialog({
       <div className="flex flex-col gap-4 py-2">
         <div className="flex gap-4">
           <div className="h-32 w-22 shrink-0 shadow-book">
-            <BookCover title={form.title || "Titel"} author={form.author} coverUrl={form.coverUrl || null} textScale={0.7} />
+            <BookCover
+              title={form.title || "Titel"}
+              author={form.author}
+              coverUrl={ownCover ?? form.coverUrl ?? null}
+              textScale={0.7}
+            />
           </div>
           <div className="flex-1">
             <Field label="Cover-URL" optional hint="Leer lassen für ein gestaltetes Farbcover.">
-              <Input value={form.coverUrl} onChange={(e) => set("coverUrl")(e.target.value)} placeholder="https://…" />
+              <Input
+                value={form.coverUrl}
+                onChange={(e) => set("coverUrl")(e.target.value)}
+                placeholder="https://…"
+                disabled={Boolean(ownCover)}
+              />
             </Field>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button type="button" variant="soft" size="sm" onClick={() => setCaptureOpen(true)}>
+                <Camera size={15} />
+                {ownCover ? "Neu aufnehmen" : "Cover aufnehmen"}
+              </Button>
+              {ownCover ? (
+                <button
+                  type="button"
+                  onClick={() => setOwnCover(null)}
+                  className="text-xs text-ink-faint underline underline-offset-2 hover:text-ink"
+                >
+                  eigenes Foto entfernen
+                </button>
+              ) : null}
+            </div>
+            {ownCover ? (
+              <p className="mt-1.5 text-[11px] text-ink-faint">
+                Dein eigenes Foto gilt nur für dein Exemplar.
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -182,6 +217,8 @@ export function EditBookDialog({
           <Textarea value={form.description} onChange={(e) => set("description")(e.target.value)} rows={5} />
         </Field>
       </div>
+
+      <CoverCapture open={captureOpen} onClose={() => setCaptureOpen(false)} onCaptured={setOwnCover} />
     </Modal>
   );
 }

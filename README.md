@@ -87,6 +87,16 @@ Bewusst *nicht* verwendet: UI-Kit, State-Management-Library, Chart-Library
   Erkennung über das native `BarcodeDetector`-API (Android/Chrome) oder ZXing als
   Fallback, das erst beim Öffnen des Scanners geladen wird. Die Live-Kamera braucht
   HTTPS oder `localhost`; ohne Kamera funktioniert der Scan über ein Foto.
+- **Cover selbst aufnehmen**: Foto vom Buch machen – die App erkennt die Buchkanten,
+  entzerrt die Perspektive und schneidet gerade zu, die vier Ecken lassen sich von Hand
+  nachziehen. Erkannt wird über den Farbabstand zum Untergrund (nicht über Kantenstärke),
+  weil Titelzeilen auf dem Cover sonst stärkere Kanten liefern als der Übergang zum Tisch.
+  Ohne erkennbares Buch bleibt das Bild unbeschnitten. Alles läuft lokal im Browser,
+  ohne Bildbibliothek. Der native Dokumentenscanner von iOS/Android ist für Webseiten
+  nicht zugänglich; auf dem iPhone lässt sich aber die Dateien-App („Dokumente scannen“)
+  nutzen und der Scan anschließend auswählen.
+  Eigene Fotos gehören zum **Exemplar** (`UserBook.coverOverride`), nicht zum gemeinsamen
+  Werk, und werden nur an Berechtigte ausgeliefert.
 - Lesefortschritt: `234 / 412 Seiten` → `57 % gelesen`, mit Verlaufsprotokoll
   (`ReadingProgress`); Erreichen der letzten Seite schließt das Buch automatisch ab
 

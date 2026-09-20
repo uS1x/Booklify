@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowLeft, ArrowRight, BookPlus, Check, Loader2, PencilLine, ScanBarcode, Search, Sparkles,
+  ArrowLeft, ArrowRight, BookPlus, Camera, Check, Loader2, PencilLine, ScanBarcode, Search, Sparkles,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { LANGUAGES, READING_STATUSES, READING_STATUS_META, VISIBILITY_META } fro
 import { cn } from "@/lib/cn";
 import type { GenreOption } from "@/components/books/edit-book-dialog";
 import { IsbnScanner } from "@/components/books/isbn-scanner";
+import { CoverCapture } from "@/components/books/cover-capture";
 import { formatIsbn, toIsbn13 } from "@/lib/isbn";
 
 type Candidate = {
@@ -71,6 +72,9 @@ export function AddBookWizard({
   const [searching, startSearch] = useTransition();
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannedIsbn, setScannedIsbn] = useState<string | null>(null);
+  /** Selbst aufgenommenes Cover – gehört zum eigenen Exemplar, nicht zum Werk. */
+  const [ownCover, setOwnCover] = useState<string | null>(null);
+  const [coverCaptureOpen, setCoverCaptureOpen] = useState(false);
 
   const [details, setDetails] = useState(emptyDetails);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
@@ -140,6 +144,7 @@ export function AddBookWizard({
       pageCount: candidate.pageCount ? String(candidate.pageCount) : "",
       language: candidate.language ?? "de",
     });
+    setOwnCover(null);
     setSelectedGenres(candidate.genreSlugs.filter((slug) => genres.some((g) => g.slug === slug)));
     setExternal({ source: candidate.source, id: candidate.externalId });
     setStep(1);
@@ -177,6 +182,7 @@ export function AddBookWizard({
           currentPage: copy.currentPage ? Number(copy.currentPage) : 0,
           rating: copy.rating ? Number(copy.rating) : null,
           notes: copy.notes.trim() || null,
+          coverOverride: ownCover,
           tags: copy.tags
             .split(",")
             .map((tag) => tag.trim())
@@ -392,23 +398,48 @@ export function AddBookWizard({
           >
             <div className="rounded-3xl border border-ink/8 bg-surface p-5 shadow-soft sm:p-6 dark:border-white/8">
               <div className="flex flex-col gap-5 sm:flex-row">
-                <div className="mx-auto w-32 shrink-0 sm:mx-0">
+                <div className="mx-auto w-40 shrink-0 sm:mx-0 sm:w-32">
                   <div className="aspect-2/3 shadow-book">
                     <BookCover
                       title={details.title || "Titel"}
                       author={details.author}
-                      coverUrl={details.coverUrl || null}
+                      coverUrl={ownCover ?? details.coverUrl ?? null}
                       textScale={1}
                     />
                   </div>
-                  <Field label="Cover-URL" optional className="mt-3">
-                    <Input
-                      value={details.coverUrl}
-                      onChange={(event) => setDetails({ ...details, coverUrl: event.target.value })}
-                      placeholder="https://…"
-                      className="text-xs"
-                    />
-                  </Field>
+
+                  <Button
+                    type="button"
+                    variant="soft"
+                    size="sm"
+                    className="mt-3 w-full"
+                    onClick={() => setCoverCaptureOpen(true)}
+                  >
+                    <Camera size={15} />
+                    {ownCover ? "Neu aufnehmen" : "Cover aufnehmen"}
+                  </Button>
+
+                  {ownCover ? (
+                    <p className="mt-2 text-center text-[11px] text-ink-faint">
+                      Eigenes Foto ·{" "}
+                      <button
+                        type="button"
+                        onClick={() => setOwnCover(null)}
+                        className="underline underline-offset-2 hover:text-ink"
+                      >
+                        entfernen
+                      </button>
+                    </p>
+                  ) : (
+                    <Field label="Cover-URL" optional className="mt-3">
+                      <Input
+                        value={details.coverUrl}
+                        onChange={(event) => setDetails({ ...details, coverUrl: event.target.value })}
+                        placeholder="https://…"
+                        className="text-xs"
+                      />
+                    </Field>
+                  )}
                 </div>
 
                 <div className="grid flex-1 gap-4 sm:grid-cols-2">
@@ -669,6 +700,15 @@ export function AddBookWizard({
       </AnimatePresence>
 
       <IsbnScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onDetected={handleScan} />
+
+      <CoverCapture
+        open={coverCaptureOpen}
+        onClose={() => setCoverCaptureOpen(false)}
+        onCaptured={(url) => {
+          setOwnCover(url);
+          toast("Cover übernommen");
+        }}
+      />
     </div>
   );
 }

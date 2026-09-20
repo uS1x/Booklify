@@ -39,6 +39,19 @@ const bookInputSchema = z.object({
   externalId: z.string().max(120).optional().nullable(),
 });
 
+/**
+ * Cover-Quelle: entweder eine externe URL oder ein eigener Upload unter
+ * /api/media/<id>. Eigene Uploads sind zugriffsgeschützt und gehören deshalb
+ * an das Exemplar (coverOverride), nicht an das gemeinsame Werk.
+ */
+const coverSourceSchema = z
+  .string()
+  .max(2000)
+  .refine(
+    (value) => /^https?:\/\//.test(value) || /^\/api\/media\/[A-Za-z0-9_-]+$/.test(value),
+    "Ungültige Cover-Adresse",
+  );
+
 const copyInputSchema = z.object({
   status: z.enum(READING_STATUSES).default("WANT_TO_READ"),
   currentPage: z.number().int().min(0).max(20000).default(0),
@@ -48,6 +61,7 @@ const copyInputSchema = z.object({
   visibility: z.enum(VISIBILITIES).default("PRIVATE"),
   lendingEnabled: z.boolean().default(false),
   favorite: z.boolean().default(false),
+  coverOverride: coverSourceSchema.optional().nullable().or(z.literal("")),
   startedAt: z.string().optional().nullable(),
   finishedAt: z.string().optional().nullable(),
   readingMinutes: z.number().int().min(0).max(100000).optional().nullable(),
@@ -159,6 +173,7 @@ export async function createBookAction(
         visibility: copy.visibility,
         lendingEnabled: copy.lendingEnabled,
         favorite: copy.favorite,
+        coverOverride: copy.coverOverride || null,
         startedAt: toDate(copy.startedAt) ?? (copy.status === "READING" ? new Date() : null),
         finishedAt: toDate(copy.finishedAt) ?? (finished ? new Date() : null),
         readingMinutes: copy.readingMinutes ?? null,
@@ -219,6 +234,7 @@ export async function updateBookAction(
         ...(copy.visibility ? { visibility: copy.visibility } : {}),
         ...(copy.lendingEnabled !== undefined ? { lendingEnabled: copy.lendingEnabled } : {}),
         ...(copy.favorite !== undefined ? { favorite: copy.favorite } : {}),
+        ...(copy.coverOverride !== undefined ? { coverOverride: copy.coverOverride || null } : {}),
         ...(copy.currentPage !== undefined ? { currentPage: copy.currentPage } : {}),
         ...(copy.startedAt !== undefined ? { startedAt: toDate(copy.startedAt) } : {}),
         ...(copy.finishedAt !== undefined ? { finishedAt: toDate(copy.finishedAt) } : {}),
