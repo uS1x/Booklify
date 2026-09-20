@@ -88,11 +88,15 @@ Bewusst *nicht* verwendet: UI-Kit, State-Management-Library, Chart-Library
   Fallback, das erst beim Öffnen des Scanners geladen wird. Die Live-Kamera braucht
   HTTPS oder `localhost`; ohne Kamera funktioniert der Scan über ein Foto.
 - **Cover selbst aufnehmen**: Foto vom Buch machen – die App erkennt die Buchkanten,
-  entzerrt die Perspektive und schneidet gerade zu, die vier Ecken lassen sich von Hand
-  nachziehen. Erkannt wird über den Farbabstand zum Untergrund (nicht über Kantenstärke),
-  weil Titelzeilen auf dem Cover sonst stärkere Kanten liefern als der Übergang zum Tisch.
-  Ohne erkennbares Buch bleibt das Bild unbeschnitten. Alles läuft lokal im Browser,
-  ohne Bildbibliothek. Der native Dokumentenscanner von iOS/Android ist für Webseiten
+  entzerrt die Perspektive und schneidet gerade zu. Die vier Ecken lassen sich von Hand
+  nachziehen; beim Ziehen zeigt eine Lupe den vergrößerten Ausschnitt, weil der Finger
+  sonst genau die Stelle verdeckt. Erkennung in vier Schritten: Kanten ausdünnen und
+  per Hysterese verfolgen (sonst verschwindet die schwache Außenkante neben kräftigen
+  Titelzeilen im Cover), lange Geraden per Hough-Transformation suchen, Vierecke aus
+  parallelen Gegenkanten bilden und das *größte* gut belegte wählen – Zierrahmen liegen
+  immer innerhalb des Buches. Zusätzlich muss auf **jeder** Seite die Farbe innen und
+  außen wechseln, sonst gewinnen Muster im Untergrund. Ohne erkennbares Buch bleibt das
+  Bild unbeschnitten. Alles läuft lokal im Browser, ohne Bildbibliothek. Der native Dokumentenscanner von iOS/Android ist für Webseiten
   nicht zugänglich; auf dem iPhone lässt sich aber die Dateien-App („Dokumente scannen“)
   nutzen und der Scan anschließend auswählen.
   Eigene Fotos gehören zum **Exemplar** (`UserBook.coverOverride`), nicht zum gemeinsamen

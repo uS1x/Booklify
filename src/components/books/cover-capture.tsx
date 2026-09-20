@@ -6,6 +6,7 @@ import { Camera, Check, ImageUp, Loader2, RefreshCw, ScanLine } from "lucide-rea
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/cn";
 import {
   canvasToBlob, detectCoverQuad, loadImage, outputSize, warpQuad, type Point, type Quad,
 } from "@/lib/image-crop";
@@ -33,7 +34,10 @@ export function CoverCapture({
   const [busy, setBusy] = useState<null | "reading" | "cropping" | "uploading">(null);
 
   const frameRef = useRef<HTMLDivElement>(null);
+  const magnifierRef = useRef<HTMLCanvasElement>(null);
   const dragging = useRef<number | null>(null);
+  /** Bildkoordinaten der gerade gezogenen Ecke – steuert die Lupe. */
+  const [magnifier, setMagnifier] = useState<Point | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -67,6 +71,38 @@ export function CoverCapture({
     }
   };
 
+  const MAGNIFIER_SIZE = 116;
+  const MAGNIFIER_ZOOM = 3;
+
+  /** Zeichnet den Ausschnitt um die gezogene Ecke vergrößert in die Lupe. */
+  const drawMagnifier = (point: Point) => {
+    const canvas = magnifierRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context || !source) return;
+    const cut = MAGNIFIER_SIZE / MAGNIFIER_ZOOM;
+    context.fillStyle = "#000";
+    context.fillRect(0, 0, MAGNIFIER_SIZE, MAGNIFIER_SIZE);
+    context.drawImage(
+      source,
+      point.x - cut / 2, point.y - cut / 2, cut, cut,
+      0, 0, MAGNIFIER_SIZE, MAGNIFIER_SIZE,
+    );
+    // Fadenkreuz
+    context.strokeStyle = "rgba(255,255,255,0.9)";
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(MAGNIFIER_SIZE / 2, 0);
+    context.lineTo(MAGNIFIER_SIZE / 2, MAGNIFIER_SIZE);
+    context.moveTo(0, MAGNIFIER_SIZE / 2);
+    context.lineTo(MAGNIFIER_SIZE, MAGNIFIER_SIZE / 2);
+    context.stroke();
+    context.strokeStyle = "#dd9d88";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(MAGNIFIER_SIZE / 2, MAGNIFIER_SIZE / 2, 9, 0, Math.PI * 2);
+    context.stroke();
+  };
+
   const toImageCoords = (event: React.PointerEvent): Point | null => {
     const rect = frameRef.current?.getBoundingClientRect();
     if (!rect || !source) return null;
@@ -84,6 +120,8 @@ export function CoverCapture({
     const next = [...quad] as Quad;
     next[index] = point;
     setQuad(next);
+    setMagnifier(point);
+    drawMagnifier(point);
   };
 
   const confirm = async () => {
@@ -196,8 +234,14 @@ export function CoverCapture({
           <div
             ref={frameRef}
             onPointerMove={onPointerMove}
-            onPointerUp={() => (dragging.current = null)}
-            onPointerLeave={() => (dragging.current = null)}
+            onPointerUp={() => {
+              dragging.current = null;
+              setMagnifier(null);
+            }}
+            onPointerLeave={() => {
+              dragging.current = null;
+              setMagnifier(null);
+            }}
             className="relative w-full touch-none-safe overflow-hidden rounded-2xl bg-black select-none"
             style={{ aspectRatio: `${source.width} / ${source.height}` }}
           >
@@ -245,6 +289,28 @@ export function CoverCapture({
                 ))}
               </svg>
             ) : null}
+
+            {/* Lupe: erscheint beim Ziehen über der Ecke, damit der Finger die
+                Stelle nicht verdeckt. */}
+            <canvas
+              ref={magnifierRef}
+              width={MAGNIFIER_SIZE}
+              height={MAGNIFIER_SIZE}
+              className={cn(
+                "pointer-events-none absolute z-10 rounded-full border-2 border-white/90 shadow-lift transition-opacity duration-150",
+                magnifier ? "opacity-100" : "opacity-0",
+              )}
+              style={{
+                width: MAGNIFIER_SIZE,
+                height: MAGNIFIER_SIZE,
+                left: magnifier && source ? `${(magnifier.x / source.width) * 100}%` : "50%",
+                top: magnifier && source ? `${(magnifier.y / source.height) * 100}%` : "50%",
+                transform:
+                  magnifier && source && magnifier.y / source.height < 0.3
+                    ? "translate(-50%, 24%)"
+                    : "translate(-50%, -124%)",
+              }}
+            />
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2">
